@@ -6,7 +6,15 @@
 ;Additional cleanup, relocation by Charles Mangin, March, 2019
 ; ----------------------------------------------------------------------------
 
+UART_RX		equ $18
+UART_TX		equ $18
+UART_RX_STATUS	equ $19
+UART_TX_STATUS	equ $19
+UART_RX_FULL	equ $01
+UART_TX_EMPTY	equ $04
+
 STK_TOP		equ 0x0F1A
+MEM_TOP		equ 0x2000
 
  	ORG	00
 
@@ -16,21 +24,28 @@ Start	DI
 	DW 0490h	
 	DW 07F9h	
 
+; RST 1
 SyntaxCheck	MOV A,M	;A=Byte of BASIC program.
 	XTHL	;HL=return address.
 	CMP M	;Compare to byte expected.
 	INX H	;Return address++;
 	XTHL	;
 	JNZ SyntaxError	;Error if not what was expected.
+
+; RST 2
 NextChar	INX H	
 	MOV A,M	
 	CPI 0x3A	
 	RNC	
 	JMP NextChar_tail	
+
+; RST 3
 OutChar	PUSH PSW	
 	LDA TERMINAL_X	
 	JMP OutChar_tail	
 	NOP	
+
+; RST 4
 CompareHLDE	MOV A,H	
 	SUB D	
 	RNZ	
@@ -39,10 +54,14 @@ CompareHLDE	MOV A,H
 	RET	
 TERMINAL_Y	DB 01	
 TERMINAL_X	DB 00	
+
+; RST 5
 FTestSign	LDA FACCUM+3	
 	ORA A	
 	JNZ FTestSign_tail	
 	RET	
+
+; RST 6
 PushNextWord	XTHL	
 	SHLD L003A+1	
 	POP H	
@@ -52,6 +71,7 @@ PushNextWord	XTHL
 	INX H	
 	PUSH B	
 L003A	JMP L003A	
+
 KW_INLINE_FNS	DW Sgn	
 	DW Int	
 	DW Abs	
@@ -59,6 +79,7 @@ KW_INLINE_FNS	DW Sgn
 	DW Sqr	
 	DW Rnd	
 	DW Sin	
+
 KW_ARITH_OP_FNS	DB 79h
 	DW FAdd	;+
 	DB 79h
@@ -67,6 +88,7 @@ KW_ARITH_OP_FNS	DB 79h
 	DW FMul	;*
 	DB 7Ch 
 	DW FDiv	;/
+
 KEYWORDS	DB 45h,4Eh,0C4h		; "END"	80
 	DB 46h,4Fh,0D2h			; "FOR"
 	DB 4Eh,45h,58h,0D4h		; "NEXT"	82
@@ -477,17 +499,22 @@ OutChar_tail	CPI 0x48	;
 	CZ NewLine	;
 	INR A	;
 	STA TERMINAL_X	;
-WaitTermReady	IN 00	;
-	ANI 80h	;
-	JNZ WaitTermReady	;
-	POP PSW	;
-	OUT 01	;
+WaitTermReady	MVI A,0
+	OUT UART_TX_STATUS	; select RR0
+	IN UART_TX_STATUS	; in a,(UART_TX_STATUS)	; status register of serial port
+	ANI UART_TX_EMPTY	; and UART_TX_EMPTY		; wait for tx buffer empty
+	JZ WaitTermReady	;
+	POP PSW			; pop AF			; get byte to be sent
+	ANI 7Fh			; and 7fh			; strip MSB
+	OUT UART_TX		; out (UART_TX),a		; serial port TX buffer
 	RET	;
-InputChar	IN 00	; 
-	ANI 01	; 
-	JNZ InputChar	;
-	IN 01	; 
-	ANI 7Fh	; 
+InputChar	MVI A,0
+	OUT UART_RX_STATUS	; select RR0
+	IN UART_RX_STATUS	; in a,(UART_RX_STATUS)	; status register of serial port
+	ANI UART_RX_FULL	; and UART_RX_FULL	; wait for RX buffer full
+	JZ InputChar	;
+	IN UART_RX			; in a,(UART_RX)	; fetch received char
+	ANI 7Fh			; and 7fh			; strip MSB
 	RET	;
 List	CALL LineNumberFromStr	
 	RNZ	
@@ -630,9 +657,11 @@ Restore	XCHG
 L046E	SHLD DATA_PROG_PTR	
 	XCHG	
 	RET	
-TestBreakKey	IN 00	;Exit if no key pressed.
-	ANI 01	;
-	RNZ	;
+TestBreakKey	MVI A,0
+	OUT UART_RX_STATUS	; select RR0
+	IN UART_RX_STATUS	; in a,(00)		; status register of serial port
+	ANI UART_RX_FULL	; and 1			; wait for RX buffer full
+	RZ	;;Exit if no key pressed.
 	CALL InputChar	;
 	CPI 0x03	;Break key?
 	JMP Stop	
@@ -1954,85 +1983,13 @@ TAYLOR_SERIES	DB 0xBA,0xD7,0x1E,0x86	;DD 39.710670
 L0D17	DB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00	;   DD 6.283185
 Init	LXI H,STK_TOP	; *** STACK_TOP RELOCATE
 	SPHL	;
-	SHLD STACK_TOP	;
-	IN 01	;
-	MVI C,0xFF	;
-	LXI D,ConfigIOcode	;
-	PUSH D	;
-	LDA 0FFFh	; *** RELOCATE
-	MOV B,A	;
-	IN 0xFF	;
-	RAR	;
-	JC L0D42-1	;
-	ANI 0Ch	;
-	JZ L0D42	;
-	MVI B,10h	;
-	MOV A,B	;
-L0D42	STA L0D8D-1	;
-	IN 0xFF	;
-	RAL	;
-	RAL	;
-	MVI B,20h	;
-L0D4B	LXI D,0xCA02	;
-	RC	;
-	RAL	;
-	MOV B,E	;
-	DCR E	;
-	RC	;
-	RAL	;
-	JC L0D6F	;
-	MOV B,E	;
-	LXI D,0xC280	;
-	RAL	;
-	RNC	;
-	RAL	;
-	MVI A,03h	;
-	CALL L0D8B	;
-	DCR A	;
-	ADC A	;
-	ADD A	;
-	ADD A	;
-	INR A	;
-	CALL L0D8B	;
-	STC	;
-	JMP L0D4B	;
-L0D6F	XRA A	;
-	CALL L0D8B	;
-	CALL L0D87	;
-	CALL L0D87	;
-	MOV C,E	;
-	CMA	;
-	CALL L0D87	;
-	MVI A,04h	;
-	DCR M	;
-	CALL L0D8B	;
-	DCR M	;
-	DCR M	;
-	DCR M	;
-L0D87	LXI H,L0D8D-1	;
-	INR M	;
-L0D8B	OUT 00	;
-L0D8D	RET	;
-ConfigIOcode	MOV H,D	;
-	MOV L,B	;
-	SHLD InputChar+3	;
-	MOV A,H	;
-	ANI 0xC8	;
-	MOV H,A	;
-	SHLD TestBreakKey+3	;
-	XCHG	;
-	SHLD WaitTermReady+3	;
-	LDA L0D8D-1	;
-	STA InputChar+1	;
-	STA TestBreakKey+1	;
-	INR A	;
-	STA InputChar+8	;
-	ADD C	;
-	STA WaitTermReady+1	;
-	INR A	;
-	STA InputChar-2	;
-	LXI H,0xFFFF	;
-	SHLD CURRENT_LINE	;
+	SHLD STACK_TOP	; ld (STACK_TOP),hl
+	IN UART_RX		; flush RX buffer
+	MVI C,0xFF		; ld c,$ff
+	JMP ConfigIOcode
+
+ConfigIOcode	LXI H,0xFFFF	;
+	SHLD CURRENT_LINE	; ld (CURRENT_LINE),hl
 	CALL NewLine	;
 	LXI H,szMemorySize	;
 	CALL PrintString	
@@ -2040,16 +1997,7 @@ ConfigIOcode	MOV H,D	;
 	RST 02	;RST NextChar	
 	ORA A	
 	JNZ L0DDE	
-	LXI H,UnusedMemory	
-FindMemTopLoop	INX H	
-	MVI A,37h	
-	MOV M,A	
-	CMP M	
-	JNZ DoneMemSize	
-	DCR A	
-	MOV M,A	
-	CMP M	
-	JZ FindMemTopLoop	
+	LXI H,MEM_TOP	;UnusedMemory	
 	JMP DoneMemSize	
 L0DDE	LXI H,LINE_BUFFER	
 	CALL LineNumberFromStr	
