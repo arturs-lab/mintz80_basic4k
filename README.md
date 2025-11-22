@@ -8,8 +8,9 @@ on IMSAI running z80 CPU, final issues were resolved and code now runs correctly
 
 # references
 
-http://altairbasic.org/index2.html</b>
-https://github.com/option8/Altair-BASIC</b>
-https://github.com/bhall66/IMSAI-8080/tree/main/Altair-Basic</b>
-https://archive.org/details/bitsavers_mitsMITSAl_6669937/page/n182/mode/1up</b>
+http://altairbasic.org/index2.html<br>
+https://github.com/option8/Altair-BASIC<br>
+https://github.com/bhall66/IMSAI-8080/tree/main/Altair-Basic<br>
+https://archive.org/details/bitsavers_mitsMITSAl_6669937/page/n182/mode/1up<br>
+
 
