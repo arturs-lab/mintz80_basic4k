@@ -2016,7 +2016,19 @@ ConfigIOcode	LXI H,0xFFFF	;
 	RST 02	;RST NextChar	
 	ORA A	
 	JNZ L0DDE	
-	LXI H,MEM_TOP	;UnusedMemory	
+	LXI H,UnusedMemory	
+FindMemTopLoop	INX H	
+	MOV A,H		; check if we've reached A0
+	CPI 0xa0
+	JZ DoneMemSize	; if yes, then exit loop with HL=a000
+	MVI A,37h	
+	MOV M,A	
+	CMP M	
+	JNZ DoneMemSize	
+	DCR A	
+	MOV M,A	
+	CMP M	
+	JZ FindMemTopLoop	
 	JMP DoneMemSize	
 L0DDE	LXI H,LINE_BUFFER	
 	CALL LineNumberFromStr	

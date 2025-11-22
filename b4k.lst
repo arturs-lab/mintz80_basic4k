@@ -1986,118 +1986,130 @@
 0D30   21 FF FF     CONFIGIOCODE:   LXI   H,0xFFFF   ; 
 0D33   22 61 01               SHLD   CURRENT_LINE   ; ld (CURRENT_LINE),hl
 0D36   CD 98 05               CALL   NewLine   ; 
-0D39   21 5F 0E               LXI   H,szMemorySize   ; 
+0D39   21 73 0E               LXI   H,szMemorySize   ; 
 0D3C   CD A7 05               CALL   PrintString   
 0D3F   CD C2 02               CALL   InputLineWith   
 0D42   D7                     RST   02   ;RST NextChar	
 0D43   B7                     ORA   A   
-0D44   C2 4D 0D               JNZ   L0DDE   
-0D47   21 00 20               LXI   H,MEM_TOP   ;UnusedMemory	
-0D4A   C3 59 0D               JMP   DoneMemSize   
-0D4D   21 13 01     L0DDE:    LXI   H,LINE_BUFFER   
-0D50   CD AB 04               CALL   LineNumberFromStr   
-0D53   B7                     ORA   A   
-0D54   C2 D0 01               JNZ   SyntaxError   
-0D57   EB                     XCHG      
-0D58   2B                     DCX   H   
-0D59   2B           DONEMEMSIZE:   DCX   H   
-0D5A   E5                     PUSH   H   
-0D5B   21 23 0E     GETTERMINALWIDTH:   LXI   H,szTerminalWidth   
-0D5E   CD A7 05               CALL   PrintString   
-0D61   CD C2 02               CALL   InputLineWith   
-0D64   D7                     RST   02   ;RST NextChar	
-0D65   B7                     ORA   A   
-0D66   CA 8A 0D               JZ   DoOptionalFns   
-0D69   21 13 01               LXI   H,LINE_BUFFER   
-0D6C   CD AB 04               CALL   LineNumberFromStr   
-0D6F   7A                     MOV   A,D   
-0D70   B7                     ORA   A   
-0D71   C2 5B 0D               JNZ   GetTerminalWidth   
-0D74   7B                     MOV   A,E   
-0D75   FE 10                  CPI   0x10   
-0D77   DA 5B 0D               JC   GetTerminalWidth   
-0D7A   32 6F 03               STA   OutChar_tail+1   
-0D7D   D6 0E        CALCTABBRKSIZE:   SUI   0Eh   
-0D7F   D2 7D 0D               JNC   CalcTabBrkSize   
-0D82   C6 1C                  ADI   1Ch   
-0D84   2F                     CMA      
-0D85   3C                     INR   A   
-0D86   83                     ADD   E   
-0D87   32 BB 05               STA   ToNextTabBreak+4   
-0D8A   21 F4 0D     DOOPTIONALFNS:   LXI   H,OPT_FN_DESCS   
-0D8D   F7           OPTIONALFNSLOOP:   RST   6   
-0D8E   11 08 0E               LXI   D,szWantSin   
-0D91   E7                     RST   4   
-0D92   CA A1 0D               JZ   L0E32   
-0D95   F7                     RST   6   
-0D96   E3                     XTHL      
-0D97   CD A7 05               CALL   PrintString   
-0D9A   CD C2 02               CALL   InputLineWith   
-0D9D   D7                     RST   02   ;RST NextChar	
-0D9E   E1                     POP   H   
-0D9F   FE 59                  CPI   "Y"   
-0DA1   D1           L0E32:    POP   D   
-0DA2   CA B6 0D               JZ   InitProgramBase   
-0DA5   FE 4E                  CPI   "N"   
-0DA7   C2 8A 0D               JNZ   DoOptionalFns   
-0DAA   F7                     RST   6   
-0DAB   E3                     XTHL      
-0DAC   11 A6 04               LXI   D,FunctionCallError   
-0DAF   73                     MOV   M,E   
-0DB0   23                     INX   H   
-0DB1   72                     MOV   M,D   
+0D44   C2 61 0D               JNZ   L0DDE   
+0D47   21 7F 0E               LXI   H,UnusedMemory   
+0D4A   23           FINDMEMTOPLOOP:   INX   H   
+0D4B   7C                     MOV   A,H   ; check if we've reached A0
+0D4C   FE A0                  CPI   0xa0   
+0D4E   CA 6D 0D               JZ   DoneMemSize   ; if yes, then exit loop with HL=a000
+0D51   3E 37                  MVI   A,37h   
+0D53   77                     MOV   M,A   
+0D54   BE                     CMP   M   
+0D55   C2 6D 0D               JNZ   DoneMemSize   
+0D58   3D                     DCR   A   
+0D59   77                     MOV   M,A   
+0D5A   BE                     CMP   M   
+0D5B   CA 4A 0D               JZ   FindMemTopLoop   
+0D5E   C3 6D 0D               JMP   DoneMemSize   
+0D61   21 13 01     L0DDE:    LXI   H,LINE_BUFFER   
+0D64   CD AB 04               CALL   LineNumberFromStr   
+0D67   B7                     ORA   A   
+0D68   C2 D0 01               JNZ   SyntaxError   
+0D6B   EB                     XCHG      
+0D6C   2B                     DCX   H   
+0D6D   2B           DONEMEMSIZE:   DCX   H   
+0D6E   E5                     PUSH   H   
+0D6F   21 37 0E     GETTERMINALWIDTH:   LXI   H,szTerminalWidth   
+0D72   CD A7 05               CALL   PrintString   
+0D75   CD C2 02               CALL   InputLineWith   
+0D78   D7                     RST   02   ;RST NextChar	
+0D79   B7                     ORA   A   
+0D7A   CA 9E 0D               JZ   DoOptionalFns   
+0D7D   21 13 01               LXI   H,LINE_BUFFER   
+0D80   CD AB 04               CALL   LineNumberFromStr   
+0D83   7A                     MOV   A,D   
+0D84   B7                     ORA   A   
+0D85   C2 6F 0D               JNZ   GetTerminalWidth   
+0D88   7B                     MOV   A,E   
+0D89   FE 10                  CPI   0x10   
+0D8B   DA 6F 0D               JC   GetTerminalWidth   
+0D8E   32 6F 03               STA   OutChar_tail+1   
+0D91   D6 0E        CALCTABBRKSIZE:   SUI   0Eh   
+0D93   D2 91 0D               JNC   CalcTabBrkSize   
+0D96   C6 1C                  ADI   1Ch   
+0D98   2F                     CMA      
+0D99   3C                     INR   A   
+0D9A   83                     ADD   E   
+0D9B   32 BB 05               STA   ToNextTabBreak+4   
+0D9E   21 08 0E     DOOPTIONALFNS:   LXI   H,OPT_FN_DESCS   
+0DA1   F7           OPTIONALFNSLOOP:   RST   6   
+0DA2   11 1C 0E               LXI   D,szWantSin   
+0DA5   E7                     RST   4   
+0DA6   CA B5 0D               JZ   L0E32   
+0DA9   F7                     RST   6   
+0DAA   E3                     XTHL      
+0DAB   CD A7 05               CALL   PrintString   
+0DAE   CD C2 02               CALL   InputLineWith   
+0DB1   D7                     RST   02   ;RST NextChar	
 0DB2   E1                     POP   H   
-0DB3   C3 8D 0D               JMP   OptionalFnsLoop   
-0DB6   EB           INITPROGRAMBASE:   XCHG      
-0DB7   36 00                  MVI   M,00h   
-0DB9   23                     INX   H   
-0DBA   22 65 01               SHLD   PROGRAM_BASE   
-0DBD   E3                     XTHL      
-0DBE   11 1A 0F               LXI   D,STK_TOP   ; *** RELOCATE STACK_TOP	
-0DC1   E7                     RST   4   
-0DC2   DA CD 01               JC   OutOfMemory   
-0DC5   D1                     POP   D   
-0DC6   F9                     SPHL      
-0DC7   22 63 01               SHLD   STACK_TOP   
-0DCA   EB                     XCHG      
-0DCB   CD C3 01               CALL   CheckEnoughMem   
-0DCE   7B                     MOV   A,E   
-0DCF   95                     SUB   L   
-0DD0   6F                     MOV   L,A   
-0DD1   7A                     MOV   A,D   
-0DD2   9C                     SBB   H   
-0DD3   67                     MOV   H,A   
-0DD4   01 F0 FF               LXI   B,0xFFF0   
-0DD7   09                     DAD   B   
-0DD8   CD 98 05               CALL   NewLine   
-0DDB   CD 3B 0B               CALL   PrintInt   
-0DDE   21 32 0E               LXI   H,szVersionInfo   
-0DE1   CD A7 05               CALL   PrintString   
-0DE4   21 A7 05               LXI   H,PrintString   
-0DE7   22 FD 01               SHLD   Main+4   
-0DEA   CD 96 02               CALL   New+1   
-0DED   21 F9 01               LXI   H,Main   
-0DF0   22 02 00               SHLD   Start+2   
-0DF3   E9                     PCHL      
-0DF4   1B 0D        OPT_FN_DESCS:   DW   L0D17   
-0DF6   08 0E                  DW   szWantSin   
-0DF8   49 00                  DW   KW_INLINE_FNS+12   
-0DFA   99 0C                  DW   Sin   
-0DFC   11 0E                  DW   szWantRnd   
-0DFE   47 00                  DW   KW_INLINE_FNS+10   
-0E00   63 0C                  DW   Rnd   
-0E02   1A 0E                  DW   szWantSqr   
-0E04   45 00                  DW   KW_INLINE_FNS+8   
-0E06   25 0C                  DW   Sqr   
-0E08   57 41 4E 54 20 53 49 CE 00 SZWANTSIN:   DB   57h,41h,4Eh,54h,20h,53h,49h,0CEh,00h   ; DS "WANT SIN\0"
-0E11   57 41 4E 54 20 52 4E C4 00 SZWANTRND:   DB   57h,41h,4Eh,54h,20h,52h,4Eh,0C4h,00h   ; DS "WANT RND\0"
-0E1A   57 41 4E 54 20 53 51 D2 00 SZWANTSQR:   DB   57h,41h,4Eh,54h,20h,53h,51h,0D2h,00h   ; DS "WANT SQR\0"
-0E23   54 45 52 4D 49 4E 41 4C 20 57 49 44 54 C8 00 SZTERMINALWIDTH:   DB   54h,45h,52h,4Dh,49h,4Eh,41h,4Ch,20h,57h,49h,44h,54h,0C8h,00h   ; DS "TERMINAL WIDTH\0"
-0E32   20 42 59 54 45 53 20 46 52 45 C5 0D 0D SZVERSIONINFO:   DB   0x20,0x42,0x59,0x54,0x45,0x53,0x20,0x46,0x52,0x45,0xC5,0x0D,0x0D   ; DS " BYTES FREE\r\r"
-0E3F   42 41 53 49 43 20 56 45 52 53 49 4F 4E 20 33 2E DB   0x42,0x41,0x53,0x49,0x43,0x20,0x56,0x45,0x52,0x53,0x49,0x4F,0x4E,0x20,0x33,0x2E   ; "BASIC VERSION 3."
-0E4F   B2 0D 5B 34 4B 20 56 45 52 53 49 4F 4E DD 0D 00 DB   0xB2,0x0D,0x5B,0x34,0x4B,0x20,0x56,0x45,0x52,0x53,0x49,0x4F,0x4E,0xDD,0x0D,0x00   ; "2\r[4K VERSION]\r\0"
-0E5F   4D 45 4D 4F 52 59 20 53 49 5A C5 00 SZMEMORYSIZE:   DB   0x4D,0x45,0x4D,0x4F,0x52,0x59,0x20,0x53,0x49,0x5A,0xC5,0x00   ; DS "MEMORY SIZE\0"
-0E6B   00           UNUSEDMEMORY:   DB   00   
+0DB3   FE 59                  CPI   "Y"   
+0DB5   D1           L0E32:    POP   D   
+0DB6   CA CA 0D               JZ   InitProgramBase   
+0DB9   FE 4E                  CPI   "N"   
+0DBB   C2 9E 0D               JNZ   DoOptionalFns   
+0DBE   F7                     RST   6   
+0DBF   E3                     XTHL      
+0DC0   11 A6 04               LXI   D,FunctionCallError   
+0DC3   73                     MOV   M,E   
+0DC4   23                     INX   H   
+0DC5   72                     MOV   M,D   
+0DC6   E1                     POP   H   
+0DC7   C3 A1 0D               JMP   OptionalFnsLoop   
+0DCA   EB           INITPROGRAMBASE:   XCHG      
+0DCB   36 00                  MVI   M,00h   
+0DCD   23                     INX   H   
+0DCE   22 65 01               SHLD   PROGRAM_BASE   
+0DD1   E3                     XTHL      
+0DD2   11 1A 0F               LXI   D,STK_TOP   ; *** RELOCATE STACK_TOP	
+0DD5   E7                     RST   4   
+0DD6   DA CD 01               JC   OutOfMemory   
+0DD9   D1                     POP   D   
+0DDA   F9                     SPHL      
+0DDB   22 63 01               SHLD   STACK_TOP   
+0DDE   EB                     XCHG      
+0DDF   CD C3 01               CALL   CheckEnoughMem   
+0DE2   7B                     MOV   A,E   
+0DE3   95                     SUB   L   
+0DE4   6F                     MOV   L,A   
+0DE5   7A                     MOV   A,D   
+0DE6   9C                     SBB   H   
+0DE7   67                     MOV   H,A   
+0DE8   01 F0 FF               LXI   B,0xFFF0   
+0DEB   09                     DAD   B   
+0DEC   CD 98 05               CALL   NewLine   
+0DEF   CD 3B 0B               CALL   PrintInt   
+0DF2   21 46 0E               LXI   H,szVersionInfo   
+0DF5   CD A7 05               CALL   PrintString   
+0DF8   21 A7 05               LXI   H,PrintString   
+0DFB   22 FD 01               SHLD   Main+4   
+0DFE   CD 96 02               CALL   New+1   
+0E01   21 F9 01               LXI   H,Main   
+0E04   22 02 00               SHLD   Start+2   
+0E07   E9                     PCHL      
+0E08   1B 0D        OPT_FN_DESCS:   DW   L0D17   
+0E0A   1C 0E                  DW   szWantSin   
+0E0C   49 00                  DW   KW_INLINE_FNS+12   
+0E0E   99 0C                  DW   Sin   
+0E10   25 0E                  DW   szWantRnd   
+0E12   47 00                  DW   KW_INLINE_FNS+10   
+0E14   63 0C                  DW   Rnd   
+0E16   2E 0E                  DW   szWantSqr   
+0E18   45 00                  DW   KW_INLINE_FNS+8   
+0E1A   25 0C                  DW   Sqr   
+0E1C   57 41 4E 54 20 53 49 CE 00 SZWANTSIN:   DB   57h,41h,4Eh,54h,20h,53h,49h,0CEh,00h   ; DS "WANT SIN\0"
+0E25   57 41 4E 54 20 52 4E C4 00 SZWANTRND:   DB   57h,41h,4Eh,54h,20h,52h,4Eh,0C4h,00h   ; DS "WANT RND\0"
+0E2E   57 41 4E 54 20 53 51 D2 00 SZWANTSQR:   DB   57h,41h,4Eh,54h,20h,53h,51h,0D2h,00h   ; DS "WANT SQR\0"
+0E37   54 45 52 4D 49 4E 41 4C 20 57 49 44 54 C8 00 SZTERMINALWIDTH:   DB   54h,45h,52h,4Dh,49h,4Eh,41h,4Ch,20h,57h,49h,44h,54h,0C8h,00h   ; DS "TERMINAL WIDTH\0"
+0E46   20 42 59 54 45 53 20 46 52 45 C5 0D 0D SZVERSIONINFO:   DB   0x20,0x42,0x59,0x54,0x45,0x53,0x20,0x46,0x52,0x45,0xC5,0x0D,0x0D   ; DS " BYTES FREE\r\r"
+0E53   42 41 53 49 43 20 56 45 52 53 49 4F 4E 20 33 2E DB   0x42,0x41,0x53,0x49,0x43,0x20,0x56,0x45,0x52,0x53,0x49,0x4F,0x4E,0x20,0x33,0x2E   ; "BASIC VERSION 3."
+0E63   B2 0D 5B 34 4B 20 56 45 52 53 49 4F 4E DD 0D 00 DB   0xB2,0x0D,0x5B,0x34,0x4B,0x20,0x56,0x45,0x52,0x53,0x49,0x4F,0x4E,0xDD,0x0D,0x00   ; "2\r[4K VERSION]\r\0"
+0E73   4D 45 4D 4F 52 59 20 53 49 5A C5 00 SZMEMORYSIZE:   DB   0x4D,0x45,0x4D,0x4F,0x52,0x59,0x20,0x53,0x49,0x5A,0xC5,0x00   ; DS "MEMORY SIZE\0"
+0E7F   00           UNUSEDMEMORY:   DB   00   
 
 
 UART_RX:            0018 DEFINED AT LINE 9
@@ -2121,11 +2133,10 @@ UART_TX_EMPTY:      0004 DEFINED AT LINE 14
 STK_TOP:            0F1A DEFINED AT LINE 16
                     > USED AT LINE 186
                     > USED AT LINE 2003
-                    > USED AT LINE 2085
+                    > USED AT LINE 2097
 MEM_TOP:            2000 DEFINED AT LINE 17
-                    > USED AT LINE 2019
 START:              0000 DEFINED AT LINE 21
-                    > USED AT LINE 2109
+                    > USED AT LINE 2121
 SYNTAXCHECK:        0008 DEFINED AT LINE 28
 NEXTCHAR:           0010 DEFINED AT LINE 36
                     > USED AT LINE 649
@@ -2147,9 +2158,9 @@ L003A:              003A DEFINED AT LINE 73
                     > USED AT LINE 73
 KW_INLINE_FNS:      003D DEFINED AT LINE 75
                     > USED AT LINE 1046
-                    > USED AT LINE 2114
-                    > USED AT LINE 2117
-                    > USED AT LINE 2120
+                    > USED AT LINE 2126
+                    > USED AT LINE 2129
+                    > USED AT LINE 2132
 KW_ARITH_OP_FNS:    004B DEFINED AT LINE 83
                     > USED AT LINE 991
 KEYWORDS:           0057 DEFINED AT LINE 92
@@ -2165,8 +2176,8 @@ LINE_BUFFER:        0113 DEFINED AT LINE 171
                     > USED AT LINE 462
                     > USED AT LINE 475
                     > USED AT LINE 821
-                    > USED AT LINE 2021
-                    > USED AT LINE 2037
+                    > USED AT LINE 2033
+                    > USED AT LINE 2049
 DIM_OR_EVAL:        015B DEFINED AT LINE 181
                     > USED AT LINE 1059
                     > USED AT LINE 1128
@@ -2201,13 +2212,13 @@ CURRENT_LINE:       0161 DEFINED AT LINE 185
 STACK_TOP:          0163 DEFINED AT LINE 186
                     > USED AT LINE 390
                     > USED AT LINE 2005
-                    > USED AT LINE 2090
+                    > USED AT LINE 2102
 PROGRAM_BASE:       0165 DEFINED AT LINE 187
                     > USED AT LINE 353
                     > USED AT LINE 374
                     > USED AT LINE 382
                     > USED AT LINE 656
-                    > USED AT LINE 2083
+                    > USED AT LINE 2095
 VAR_BASE:           0167 DEFINED AT LINE 188
                     > USED AT LINE 294
                     > USED AT LINE 303
@@ -2287,9 +2298,9 @@ CHECKENOUGHMEM:     01C3 DEFINED AT LINE 234
                     > USED AT LINE 215
                     > USED AT LINE 231
                     > USED AT LINE 1193
-                    > USED AT LINE 2092
+                    > USED AT LINE 2104
 OUTOFMEMORY:        01CD DEFINED AT LINE 242
-                    > USED AT LINE 2087
+                    > USED AT LINE 2099
 SYNTAXERROR:        01D0 DEFINED AT LINE 244
                     > USED AT LINE 33
                     > USED AT LINE 614
@@ -2298,7 +2309,7 @@ SYNTAXERROR:        01D0 DEFINED AT LINE 244
                     > USED AT LINE 776
                     > USED AT LINE 905
                     > USED AT LINE 1062
-                    > USED AT LINE 2024
+                    > USED AT LINE 2036
 DIVIDEBYZERO:       01D3 DEFINED AT LINE 246
                     > USED AT LINE 1413
 ERROR:              01D5 DEFINED AT LINE 247
@@ -2318,8 +2329,8 @@ STOP:               01F7 DEFINED AT LINE 266
 MAIN:               01F9 DEFINED AT LINE 268
                     > USED AT LINE 530
                     > USED AT LINE 620
-                    > USED AT LINE 2106
-                    > USED AT LINE 2108
+                    > USED AT LINE 2118
+                    > USED AT LINE 2120
 GETNONBLANKLINE:    01FF DEFINED AT LINE 270
                     > USED AT LINE 276
                     > USED AT LINE 340
@@ -2344,7 +2355,7 @@ FINDPROGRAMLINE:    027D DEFINED AT LINE 353
                     > USED AT LINE 720
 NEW:                0295 DEFINED AT LINE 373
                     > USED AT LINE 155
-                    > USED AT LINE 2107
+                    > USED AT LINE 2119
 RUN:                02A1 DEFINED AT LINE 381
                     > USED AT LINE 145
 RESETALL:           02A2 DEFINED AT LINE 382
@@ -2357,8 +2368,8 @@ INPUTLINEWITH:      02C2 DEFINED AT LINE 398
                     > USED AT LINE 887
                     > USED AT LINE 912
                     > USED AT LINE 2015
-                    > USED AT LINE 2033
-                    > USED AT LINE 2063
+                    > USED AT LINE 2045
+                    > USED AT LINE 2075
 TOKENIZE:           02CC DEFINED AT LINE 404
                     > USED AT LINE 280
                     > USED AT LINE 441
@@ -2397,7 +2408,7 @@ L036A:              036A DEFINED AT LINE 497
                     > USED AT LINE 492
 OUTCHAR_TAIL:       036E DEFINED AT LINE 499
                     > USED AT LINE 45
-                    > USED AT LINE 2045
+                    > USED AT LINE 2057
 WAITTERMREADY:      0377 DEFINED AT LINE 503
                     > USED AT LINE 507
 INPUTCHAR:          0388 DEFINED AT LINE 512
@@ -2452,13 +2463,13 @@ FUNCTIONCALLERROR:  04A6 DEFINED AT LINE 682
                     > USED AT LINE 78
                     > USED AT LINE 678
                     > USED AT LINE 1884
-                    > USED AT LINE 2073
+                    > USED AT LINE 2085
 LINENUMBERFROMSTR:  04AB DEFINED AT LINE 684
                     > USED AT LINE 278
                     > USED AT LINE 520
                     > USED AT LINE 718
-                    > USED AT LINE 2022
-                    > USED AT LINE 2038
+                    > USED AT LINE 2034
+                    > USED AT LINE 2050
 NEXTLINENUMCHAR:    04AF DEFINED AT LINE 686
                     > USED AT LINE 706
 GOSUB:              04CC DEFINED AT LINE 707
@@ -2505,7 +2516,7 @@ NEWLINE:            0598 DEFINED AT LINE 822
                     > USED AT LINE 852
                     > USED AT LINE 856
                     > USED AT LINE 2012
-                    > USED AT LINE 2101
+                    > USED AT LINE 2113
 PRINTSTRING:        05A7 DEFINED AT LINE 844
                     > USED AT LINE 259
                     > USED AT LINE 802
@@ -2514,13 +2525,13 @@ PRINTSTRING:        05A7 DEFINED AT LINE 844
                     > USED AT LINE 1751
                     > USED AT LINE 1757
                     > USED AT LINE 2014
-                    > USED AT LINE 2032
-                    > USED AT LINE 2062
-                    > USED AT LINE 2104
-                    > USED AT LINE 2105
+                    > USED AT LINE 2044
+                    > USED AT LINE 2074
+                    > USED AT LINE 2116
+                    > USED AT LINE 2117
 TONEXTTABBREAK:     05B7 DEFINED AT LINE 854
                     > USED AT LINE 808
-                    > USED AT LINE 2053
+                    > USED AT LINE 2065
 CALCSPACECOUNT:     05C2 DEFINED AT LINE 858
                     > USED AT LINE 859
 TAB:                05CB DEFINED AT LINE 862
@@ -2849,7 +2860,7 @@ PRINTIN:            0B33 DEFINED AT LINE 1749
                     > USED AT LINE 264
 PRINTINT:           0B3B DEFINED AT LINE 1753
                     > USED AT LINE 536
-                    > USED AT LINE 2102
+                    > USED AT LINE 2114
 FOUT:               0B46 DEFINED AT LINE 1759
                     > USED AT LINE 814
 DOZERO:             0B52 DEFINED AT LINE 1765
@@ -2887,12 +2898,12 @@ DECIMAL_POWERS:     0C13 DEFINED AT LINE 1877
                     > USED AT LINE 1803
 SQR:                0C25 DEFINED AT LINE 1883
                     > USED AT LINE 79
-                    > USED AT LINE 2122
+                    > USED AT LINE 2134
 SQRLOOP:            0C3D DEFINED AT LINE 1897
                     > USED AT LINE 1911
 RND:                0C63 DEFINED AT LINE 1918
                     > USED AT LINE 80
-                    > USED AT LINE 2118
+                    > USED AT LINE 2130
 L0C7C:              0C80 DEFINED AT LINE 1929
                     > USED AT LINE 1919
 RND_SEED:           0C95 DEFINED AT LINE 1940
@@ -2900,7 +2911,7 @@ RND_SEED:           0C95 DEFINED AT LINE 1940
                     > USED AT LINE 1938
 SIN:                0C99 DEFINED AT LINE 1941
                     > USED AT LINE 81
-                    > USED AT LINE 2115
+                    > USED AT LINE 2127
 NEGATEIFPOSITIVE:   0CC7 DEFINED AT LINE 1963
                     > USED AT LINE 1959
 TAYLORLOOP:         0CED DEFINED AT LINE 1980
@@ -2908,42 +2919,47 @@ TAYLORLOOP:         0CED DEFINED AT LINE 1980
 TAYLOR_SERIES:      0D07 DEFINED AT LINE 1996
                     > USED AT LINE 1975
 L0D17:              0D1B DEFINED AT LINE 2001
-                    > USED AT LINE 2112
+                    > USED AT LINE 2124
 INIT:               0D25 DEFINED AT LINE 2003
                     > USED AT LINE 22
                     > USED AT LINE 269
 CONFIGIOCODE:       0D30 DEFINED AT LINE 2010
-L0DDE:              0D4D DEFINED AT LINE 2021
-                    > USED AT LINE 2018
-DONEMEMSIZE:        0D59 DEFINED AT LINE 2028
-                    > USED AT LINE 2020
-GETTERMINALWIDTH:   0D5B DEFINED AT LINE 2031
-                    > USED AT LINE 2041
-                    > USED AT LINE 2044
-CALCTABBRKSIZE:     0D7D DEFINED AT LINE 2047
-                    > USED AT LINE 2048
-DOOPTIONALFNS:      0D8A DEFINED AT LINE 2055
-                    > USED AT LINE 2036
-                    > USED AT LINE 2070
-OPTIONALFNSLOOP:    0D8D DEFINED AT LINE 2056
-                    > USED AT LINE 2078
-L0E32:              0DA1 DEFINED AT LINE 2067
-                    > USED AT LINE 2059
-INITPROGRAMBASE:    0DB6 DEFINED AT LINE 2080
-                    > USED AT LINE 2068
-OPT_FN_DESCS:       0DF4 DEFINED AT LINE 2112
-                    > USED AT LINE 2055
-SZWANTSIN:          0E08 DEFINED AT LINE 2124
-                    > USED AT LINE 2057
-                    > USED AT LINE 2113
-SZWANTRND:          0E11 DEFINED AT LINE 2125
-                    > USED AT LINE 2116
-SZWANTSQR:          0E1A DEFINED AT LINE 2126
-                    > USED AT LINE 2119
-SZTERMINALWIDTH:    0E23 DEFINED AT LINE 2129
+FINDMEMTOPLOOP:     0D4A DEFINED AT LINE 2020
                     > USED AT LINE 2031
-SZVERSIONINFO:      0E32 DEFINED AT LINE 2131
-                    > USED AT LINE 2103
-SZMEMORYSIZE:       0E5F DEFINED AT LINE 2134
+L0DDE:              0D61 DEFINED AT LINE 2033
+                    > USED AT LINE 2018
+DONEMEMSIZE:        0D6D DEFINED AT LINE 2040
+                    > USED AT LINE 2023
+                    > USED AT LINE 2027
+                    > USED AT LINE 2032
+GETTERMINALWIDTH:   0D6F DEFINED AT LINE 2043
+                    > USED AT LINE 2053
+                    > USED AT LINE 2056
+CALCTABBRKSIZE:     0D91 DEFINED AT LINE 2059
+                    > USED AT LINE 2060
+DOOPTIONALFNS:      0D9E DEFINED AT LINE 2067
+                    > USED AT LINE 2048
+                    > USED AT LINE 2082
+OPTIONALFNSLOOP:    0DA1 DEFINED AT LINE 2068
+                    > USED AT LINE 2090
+L0E32:              0DB5 DEFINED AT LINE 2079
+                    > USED AT LINE 2071
+INITPROGRAMBASE:    0DCA DEFINED AT LINE 2092
+                    > USED AT LINE 2080
+OPT_FN_DESCS:       0E08 DEFINED AT LINE 2124
+                    > USED AT LINE 2067
+SZWANTSIN:          0E1C DEFINED AT LINE 2136
+                    > USED AT LINE 2069
+                    > USED AT LINE 2125
+SZWANTRND:          0E25 DEFINED AT LINE 2137
+                    > USED AT LINE 2128
+SZWANTSQR:          0E2E DEFINED AT LINE 2138
+                    > USED AT LINE 2131
+SZTERMINALWIDTH:    0E37 DEFINED AT LINE 2141
+                    > USED AT LINE 2043
+SZVERSIONINFO:      0E46 DEFINED AT LINE 2143
+                    > USED AT LINE 2115
+SZMEMORYSIZE:       0E73 DEFINED AT LINE 2146
                     > USED AT LINE 2013
-UNUSEDMEMORY:       0E6B DEFINED AT LINE 2138
+UNUSEDMEMORY:       0E7F DEFINED AT LINE 2150
+                    > USED AT LINE 2019
