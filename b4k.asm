@@ -181,7 +181,7 @@ LINE_BUFFER	DW 0000,0000,0000,0000h	;72 chars
 DIM_OR_EVAL	DB 00h	; 
 INPUT_OR_READ	DB 00h	; 
 PROG_PTR_TEMP	DW 0000h	;
-L015F			DW 0000h	;
+TEMP2			DW 0000h	;
 CURRENT_LINE	DW 0000h	;
 STACK_TOP		DW STK_TOP	; RELOCATE***
 PROGRAM_BASE	DW 0000h	;
@@ -331,6 +331,7 @@ CopyFromBuffer	LXI D,LINE_BUFFER	;Copy the line into the program.
 UpdateLinkedList	CALL ResetAll	;
 	INX H	;
 	XCHG	;
+
 L0265	MOV H,D	;
 	MOV L,E	;
 	MOV A,M	;If the pointer to the next line is a null
@@ -823,15 +824,22 @@ NewLine	MVI A,0Dh
 	RST 03	;RST OutChar	
 	MVI A,0Ah	
 	RST 03	;RST OutChar	
-	LDA TERMINAL_Y	
-PrintNullLoop	DCR A	
-	STA TERMINAL_X	
-	RZ	
-	PUSH PSW	
-	XRA A	
-	RST 03	;RST OutChar	
-	POP PSW	
-	JMP PrintNullLoop	
+; from BASIC.asm, https://github.com/bhall66/IMSAI-8080/tree/main/Altair-Basic
+    XRA A 
+    STA TERMINAL_X              ; reset x posn
+    RET                         ; returns with A=0
+
+; the rest of this routine is ALTAIR and/or teletype specific, and not needed
+;	LDA TERMINAL_Y	
+;PrintNullLoop	DCR A	
+;	STA TERMINAL_X	
+;	RZ	
+;	PUSH PSW	
+;	XRA A	
+;	RST 03	;RST OutChar	
+;	POP PSW	
+;	JMP PrintNullLoop	
+
 	INX H	
 PrintString	MOV A,M	
 	ORA A	
@@ -967,8 +975,8 @@ EvalExpression	DCX H
 	MVI C,01h	
 	CALL CheckEnoughVarSpace	
 	CALL EvalTerm	
-	SHLD L015F	
-ArithParse	LHLD L015F	
+	SHLD TEMP2	
+ArithParse	LHLD TEMP2	
 	POP B	
 	MOV A,M	
 	MVI D,00h	
@@ -994,7 +1002,7 @@ ArithParse	LHLD L015F
 	CALL FPush	
 	MOV D,C	
 	RST 6	
-	LHLD L015F	
+	LHLD TEMP2	
 	JMP EvalExpression+3	
 EvalTerm	RST 02	;RST NextChar	
 	JC FIn	
@@ -1017,6 +1025,7 @@ EvalBracketed	RST 01	; SyntaxCheck
 EvalMinusTerm	CALL EvalTerm	
 	PUSH H	
 	CALL FNegate	
+PopRet:
 	POP H	
 	RET	
 EvalVarTerm	CALL GetVar	
@@ -1032,7 +1041,7 @@ EvalInlineFn	MVI B,00h
 	RST 02	;RST NextChar	
 	CALL EvalBracketed	
 	XTHL	
-	LXI D,06F1h	
+	LXI D,PopRet	
 	PUSH D	
 	LXI B,KW_INLINE_FNS	
 	DAD B	
@@ -1054,10 +1063,10 @@ GetVar	XRA A
 	XRA A	
 	MOV C,A	
 	RST 02	;RST NextChar	
-	JNC 072Eh	
+	JNC L072E	
 	MOV C,A	
 	RST 02	;RST NextChar	
-	SUI '('	
+L072E	SUI '('	
 	JZ GetArrayVar	
 	PUSH H	
 	LHLD VAR_ARRAY_BASE	
@@ -1068,11 +1077,11 @@ FindVarLoop	RST 4
 	MOV A,C	
 	SUB M	
 	INX H	
-	JNZ L0747	
+	JNZ NotIt	
 	MOV A,B	
 	SUB M	
-L0747	INX H	
-	JZ L0782	
+NotIt	INX H	
+	JZ FinPtr	
 	INX H	
 	INX H	
 	INX H	
@@ -1081,7 +1090,7 @@ L0747	INX H
 AllocNewVar	POP H	;HL=prog ptr
 	XTHL	;(SP)=prog ptr, HL=ret.addr.
 	PUSH D	;
-	LXI D,06F6h	;an address inside EvalTerm
+	LXI D,EvalVarTerm+3	;an address inside EvalTerm
 	RST 4	;
 	POP D	;
 	JZ AlreadyAllocd	;
@@ -1109,7 +1118,7 @@ InitVarLoop	DCX H
 	INX H	
 	MOV M,D	
 	INX H	
-L0782	XCHG	
+FinPtr	XCHG	
 	POP H	
 	RET	
 AlreadyAllocd	STA FACCUM+3	;A was set to zero at 075A.
@@ -1167,14 +1176,14 @@ AllocArray	MOV M,E
 	LXI D,002Ch	
 	LDA DIM_OR_EVAL	
 	ORA A	
-	JZ L07E1
+	JZ NotDim
 	POP D	
 	PUSH D	
 	INX D	
 	INX D	
 	INX D	
 	INX D	
-L07E1	PUSH D	
+NotDim	PUSH D	
 	MOV M,E	
 	INX H	
 	MOV M,D	
@@ -1260,8 +1269,14 @@ NormLoop	CPI 0xE0	;If we've shifted 32 times,
 	MOV B,A	; 
 	CALL FMantissaLeft	;Left-shift mantissa.
 	MOV A,H	;
+; in code found in https://archive.org/details/bitsavers_mitsMITSAl_6669937/page/n182/mode/1up
+; the below instruction is JZ, not JP as in https://github.com/option8/Altair-BASIC
+; this makes sense because otherwise code below this jump is never reached
+; hoever, cleaner source of this code from https://github.com/bhall66/IMSAI-8080/tree/main/Altair-Basic
+; does have jp here
 	JP NormLoop	;Loop
-	LXI H,FACCUM+3	;
+
+FNormX:	LXI H,FACCUM+3	;
 	ADD M	;
 	MOV M,A	;Since A was a -ve number, that certainly should
 	JNC FZero	;have carried, hence the extra check for zero.
@@ -1402,41 +1417,41 @@ FDiv	POP B
 	INR M	
 	DCX H	
 	MOV A,M	
-	STA L095F+1	
+	STA FDivA+1	
 	DCX H	
 	MOV A,M	
-	STA L095F-3	
+	STA FDivB+1	
 	DCX H	
 	MOV A,M	
-	STA L095F-7	
+	STA FDivC+1	
 	MOV B,C	
 	XCHG	
 	XRA A	
 	MOV C,A	
 	MOV D,A	
 	MOV E,A	
-	STA L095F+4	
+	STA FDivG+1	
 FDivLoop	PUSH H	
 	PUSH B	
 	MOV A,L	
-	SUI 00h	
+FDivC:	SUI 00h	
 	MOV L,A	
 	MOV A,H	
-	SBI 00	
+FDivB:	SBI 00	
 	MOV H,A	
 	MOV A,B	
-L095F	SBI 00	
+FDivA:	SBI 00	
 	MOV B,A	
-	MVI A,00h	
+FDivG:	MVI A,00h	
 	SBI 00	
 	CMC	
-	JNC L0971	
-	STA L095F+4h	
+	JNC FDiv2	
+	STA FDivG+1	
 	POP PSW	
 	POP PSW	
 	STC	
 	DB 0xD2	;JNC ....	
-L0971	POP B	
+FDiv2:	POP B	
 	POP H	
 	MOV A,C	
 	INR A	
@@ -1449,9 +1464,9 @@ L0971	POP B
 	MOV A,B	
 	RAL	
 	MOV B,A	
-	LDA L095F+4h	
+	LDA FDivG+1	
 	RAL	
-	STA L095F+4h	
+	STA FDivG+1	
 	MOV A,C	
 	ORA D	
 	ORA E	
@@ -1464,7 +1479,7 @@ L0971	POP B
 	JMP Overflow	
 FExponentAdd	MOV A,B	 
 	ORA A	
-	JZ FExponentAdd+31	
+	JZ MulDv2	
 	MOV A,L	;A=0 for add, FF for subtract.
 	LXI H,FACCUM+3	;
 	XRA M	;XOR with FAccum's exponent.
@@ -1473,7 +1488,7 @@ FExponentAdd	MOV A,B
 	RAR	;Carry (after the add) into bit 7.
 	XRA B	;XOR with old bit 7.
 	MOV A,B	;
-	JP FExponentAdd+30	;If
+	JP MulDv1	;If
 	ADI 0x80	 
 	MOV M,A	 
 	JZ PopHLandReturn	 
@@ -1481,10 +1496,10 @@ FExponentAdd	MOV A,B
 	MOV M,A	
 	DCX H	
 	RET	
-	ORA A	
-	POP H	;Ignore return address so we'll end
+MulDv1:	ORA A	
+MulDv2:	POP H	;Ignore return address so we'll end
 	JM Overflow	
-FZero	XRA A	
+FZero:	XRA A	
 	STA FACCUM+3	
 	RET	
 FMulByTen	CALL FCopyToBCDE	
@@ -1758,7 +1773,8 @@ DoZero	INX H
 ToOver100000	LXI B,9143h	;BCDE=(float)100,000.
 	LXI D,4FF8h	;
 	CALL FCompare	;If FACCUM >= 100,000
-	JPO PrepareToPrint	;then jump to PrepareToPrint.
+	JNZ  PrepareToPrint         ; !!! Number is in range
+	;JPO PrepareToPrint         ; ORIGINAL CODE modified to work in Z80 mode
 	POP PSW	;A=DecExpAdj
 	CALL DecimalShiftUp+1	;FACCUM*=10; DecExpAdj--;
 	PUSH PSW	;
@@ -1853,7 +1869,9 @@ ToUnder1000000	LXI B,9474h	;
 	LXI D,23F7h	;
 	CALL FCompare	;
 	POP H	;
-	JPO L0B71	;
+    JZ  L0B71                   ; !!! remove parity check operation  
+    ; JPE L0B71                 ; ORIGINAL CODE number too big, divide by 10 
+;	JPO L0B71	;
 	PCHL	;
 ONE_HALF	DB 0x00,0x00,0x00,0x80	; DD 0.5	 
 DECIMAL_POWERS	DB 0xA0,0x86,0x01	; DT 100000	 
@@ -1981,12 +1999,13 @@ TAYLOR_SERIES	DB 0xBA,0xD7,0x1E,0x86	;DD 39.710670
 	DB 0xE0,0x5D,0xA5,0x86	;DD -41.341675	 
 	DB 0xDA,0x0F,0x49,0x83	;DD 6.283185	 
 L0D17	DB 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00	;   DD 6.283185
+
 Init	LXI H,STK_TOP	; *** STACK_TOP RELOCATE
 	SPHL	;
 	SHLD STACK_TOP	; ld (STACK_TOP),hl
 	IN UART_RX		; flush RX buffer
 	MVI C,0xFF		; ld c,$ff
-	JMP ConfigIOcode
+;	JMP ConfigIOcode
 
 ConfigIOcode	LXI H,0xFFFF	;
 	SHLD CURRENT_LINE	; ld (CURRENT_LINE),hl
@@ -2005,8 +2024,10 @@ L0DDE	LXI H,LINE_BUFFER
 	JNZ SyntaxError	
 	XCHG	
 	DCX H	
+
 DoneMemSize	DCX H	
 	PUSH H	
+
 GetTerminalWidth	LXI H,szTerminalWidth	
 	CALL PrintString	
 	CALL InputLineWith	
@@ -2022,6 +2043,7 @@ GetTerminalWidth	LXI H,szTerminalWidth
 	CPI 0x10	
 	JC GetTerminalWidth	
 	STA OutChar_tail+1	
+
 CalcTabBrkSize	SUI 0Eh	
 	JNC CalcTabBrkSize	
 	ADI 1Ch	
@@ -2029,6 +2051,7 @@ CalcTabBrkSize	SUI 0Eh
 	INR A	
 	ADD E	
 	STA ToNextTabBreak+4	
+
 DoOptionalFns	LXI H,OPT_FN_DESCS	
 OptionalFnsLoop	RST 6	
 	LXI D,szWantSin	
@@ -2053,6 +2076,7 @@ L0E32	POP D
 	MOV M,D	
 	POP H	
 	JMP OptionalFnsLoop	
+
 InitProgramBase	XCHG	
 	MVI M,00h	
 	INX H	
