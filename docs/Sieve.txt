@@ -1,0 +1,33 @@
+1000 REM Sieve of Eratosthenes Program in BASIC
+1010 REM L is the upper limit for finding primes
+1020 LET L = 1000
+1030 REM N is the array (sieve)
+1040 DIM N(L)
+1050 REM Initialize the array with numbers from 0 to L
+1060 FOR I = 0 TO L
+1070 LET N(I) = I
+1080 NEXT I
+1090 REM 0 and 1 are not prime
+1100 LET N(0) = 0
+1110 LET N(1) = 0
+1120 REM Start with the first prime number: 2
+1130 LET P = 2
+1140 REM Loop until P*P exceeds L, an optimization technique
+1150 IF P * P > L THEN GOTO 1260
+1160 REM If N(P) is not 0, it is a prime number
+1170 IF N(P) = 0 THEN GOTO 1240
+1180 REM Mark all multiples of P as 0, starting from P*P
+1190 FOR I = P * P TO L STEP P
+1200 LET N(I) = 0
+1210 NEXT I
+1220 REM Find the next number not crossed out
+1230 REM Move to the next potential prime candidate
+1240 LET P = P + 1
+1250 GOTO 1150
+1260 REM Print all the remaining non-zero numbers (primes)
+1270 PRINT "Prime numbers up to"; L; ":"
+1280 FOR I = 2 TO L
+1290 IF N(I) <> 0 THEN PRINT N(I); " ";
+1300 NEXT I
+1310 PRINT ""
+1320 END
