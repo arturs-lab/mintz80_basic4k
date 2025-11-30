@@ -21,8 +21,8 @@ MEM_TOP		equ 0x2000
 Start	DI	
 	JMP Init	
 
-	DW 0490h	
-	DW 07F9h	
+	DW DEINT	
+	DW FWordToFloat	
 
 ; RST 1
 SyntaxCheck	MOV A,M	;A=Byte of BASIC program.
@@ -676,7 +676,7 @@ GetSubscript	RST 02	;RST NextChar
 	CALL EvalExpression	
 	RST 05	; FTestSign	
 	JM FunctionCallError	
-	LDA FACCUM+3	
+DEINT	LDA FACCUM+3	
 	CPI 0x90	
 	JC FAsInteger	
 FunctionCallError	MVI E,08h	
